@@ -1,1 +1,1 @@
-![BaliBalo](https://i.imgur.com/VDu0HGU.gif)
+![BaliBalo](https://i.imgur.com/zzpT13R.gif)
