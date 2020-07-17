@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Github profile animation</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.min.css">
+<style>
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #333;
+}
+
+#c {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 630px;
+  height: 140px;
+  transform: translate(-50%, -50%);
+  background: #fff;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src='https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js'></script>
+<script>
+let fontSize = '120px';
+// Plaster:400
+let fontFamily = 'Kanit';
+let fontWeight = 900;
+
+WebFont.load({
+	google: {
+		families: [fontFamily + ':' + fontWeight]
+	},
+	active: start,
+	fontinactive: () => console.log('Error loading the font') || start()
+});
+
+function clamp(a, min, max) {
+	return a > max ? max : a < min ? min : a;
+}
+function lerp(p, a, b) {
+	return a + p * (b - a);
+}
+function ilerp(n, from, to, limit) {
+	let v = (n - from) / (to - from);
+	return limit ? clamp(v, 0, 1) : v;
+}
+const bezier = (() => {
+	const b2 = t => 3 * t * t * (1 - t);
+	const b3 = t => 3 * t * (1 - t) * (1 - t);
+	const b4 = t => (1 - t) * (1 - t) * (1 - t);
+
+	return (p, x1, y1, x2, y2) => {
+		let x = x1 * b2(p) + x2 * b3(p) + b4(p);
+		let y = y1 * b2(p) + y2 * b3(p) + b4(p);
+		return [x, y];
+	}
+})();
+function bezierAt(at, x1, y1, x2, y2) {
+	let min = 0;
+	let max = 1;
+	let v = bezier((min + max) * .5, x1, y1, x2, y2);
+	let count = 0;
+	while (Math.abs(v[0] - at) > 1e-5 && count < 100) {
+		count++;
+		if (at > v[0]) {
+			max = (min + max) * .5;
+		} else {
+			min = (min + max) * .5;
+		}
+		v = bezier((min + max) * .5, x1, y1, x2, y2)
+	}
+	return v[1];
+}
+function easing(t) {
+	return bezierAt(t, 0.25, 0.1, 0.25, 1);
+}
+
+function rotateX(p, a) {
+	let d = Math.sqrt(p[1] * p[1] + p[2] * p[2]);
+	let na = Math.atan2(p[1], p[2]) + a;
+	return [p[0], d * Math.sin(na), d * Math.cos(na)];
+}
+function rotateY(p, a) {
+	let d = Math.sqrt(p[0] * p[0] + p[2] * p[2]);
+	let na = Math.atan2(p[2], p[0]) + a;
+	return [d * Math.cos(na), p[1], d * Math.sin(na)];
+}
+function rotateZ(p, a) {
+	let d = Math.sqrt(p[0] * p[0] + p[1] * p[1]);
+	let na = Math.atan2(p[1], p[0]) + a;
+	return [d * Math.cos(na), d * Math.sin(na), p[2]];
+}
+
+const initXRotation = Math.asin(1 / Math.sqrt(3));
+class Cube {
+	constructor(x, y, size) {
+		this.x = x;
+		this.y = y;
+		this.size = size;
+		this.points = [
+			[-1, -1, -1],
+			[-1, -1,  1],
+			[ 1, -1,  1],
+			[ 1, -1, -1],
+			[ 1,  1, -1],
+			[-1,  1, -1],
+			[-1,  1,  1],
+			[ 1,  1,  1],
+		];
+		this.lines = [
+			[0, 1],
+			[1, 2],
+			[2, 3],
+			[3, 0],
+			[4, 5],
+			[5, 6],
+			[6, 7],
+			[7, 4],
+			[0, 5],
+			[1, 6],
+			[2, 7],
+			[3, 4],
+		];
+		this.rot = [initXRotation, -Math.PI / 4, 0];
+	}
+	rotate(x, y, z) {
+		this.rot[0] += x || 0;
+		this.rot[1] += y || 0;
+		this.rot[2] += z || 0;
+	}
+	setRotationX(v) { this.rot[0] = v; }
+	setRotationY(v) { this.rot[1] = v; }
+	setRotationZ(v) { this.rot[2] = v; }
+	render(ctx) {
+		ctx.beginPath();
+		let pts = this.points.map(p => rotateX(rotateY(rotateZ(p, this.rot[2]), this.rot[1]), this.rot[0]));
+		this.lines.forEach(line => {
+			let from = pts[line[0]];
+			let to = pts[line[1]];
+			ctx.moveTo(this.x + from[0] * this.size, this.y + from[1] * this.size);
+			ctx.lineTo(this.x + to[0] * this.size, this.y + to[1] * this.size);
+		});
+		ctx.stroke();
+	}
+}
+
+function start() {
+	let c = document.getElementById('c');
+	let ctx = c.getContext('2d');
+	c.width = c.clientWidth;
+	c.height = c.clientHeight;
+	
+	let alt = document.createElement('canvas');
+	let actx = alt.getContext('2d');
+	alt.width = c.width;
+	alt.height = c.height;
+	actx.font = fontWeight + ' ' + fontSize + ' ' + fontFamily;
+	actx.textAlign = 'center';
+	actx.textBaseline = 'middle';
+		
+	let duration = 3;
+	let rot1Duration = .7;
+	let individualRot = .6;
+	let altTimeOffset = 2.2;
+	
+	let cubes = [];
+	let altCubes = [];
+	let cubeSize = 6;
+	let horizontalSpacing = Math.sqrt(2) * 2 * cubeSize;
+	let verticalSpacing = cubeSize * 3 * Math.sqrt(2 / 3);
+	let cubesPerRow = Math.floor(c.width / horizontalSpacing) - 1;
+	let cubeRows = Math.floor(c.height / verticalSpacing) - 1;
+	for (let y = 0; y < cubeRows; y++) {
+		let posY = (c.height - (cubeRows - 1) * verticalSpacing) * .5 + y * verticalSpacing;
+		let alternate = Math.floor(y - cubeRows * .5) % 2 === 0;
+		let rowCubes = cubesPerRow - (alternate ? 1 : 0);
+		for (let x = 0; x < rowCubes; x++) {
+			let posX = (c.width - (cubesPerRow - 1) * horizontalSpacing) * .5 + (x + (alternate ? .5 : 0)) * horizontalSpacing;
+			cubes.push(new Cube(posX, posY, cubeSize));
+			let altCube = new Cube(posX - horizontalSpacing * .5, posY - verticalSpacing / 3, cubeSize);
+			altCube.rotate(0, -Math.PI / 2, 0);
+			altCubes.push(altCube);
+		}
+	}
+	
+	let prev = performance.now();
+	let time = 0;
+	function loop(now) {
+		if (!prev) {
+			prev = now;
+		}
+		let delta = now - prev;
+		time = (time + delta / 1000) % duration;
+		prev = now;
+		ctx.clearRect(0, 0, c.width, c.height);
+		actx.globalCompositeOperation = 'source-over';
+		actx.clearRect(0, 0, c.width, c.height);
+		actx.fillStyle = 'white';
+		actx.fillText('Bali Balo', c.width * .5, c.height * .55);
+		actx.globalCompositeOperation = 'source-atop';
+		let p = time / duration;
+		let rot1 = ilerp(p, 0, rot1Duration, true);
+		let maxDist = Math.max(c.width, c.height) * .5 * Math.sqrt(2);
+		cubes.forEach(cube => {
+			let dx = c.width * .5 - cube.x;
+			let dy = c.height * .5 - cube.y;
+			let d = Math.sqrt(dx * dx + dy * dy) / maxDist;
+			let from = lerp(d, 0, 1 - individualRot);
+			let cubeRot1 = ilerp(rot1, from, from + individualRot, true);
+			cube.setRotationZ(easing(cubeRot1) * -Math.PI / 2);
+			cube.render(ctx);
+		});
+		
+		let timeAlt = (time + altTimeOffset) % duration;
+		let pAlt = timeAlt / duration;
+		let rot1Alt = ilerp(pAlt, 0, rot1Duration, true);
+		altCubes.forEach(cube => {
+			let dx = c.width * .5 - cube.x;
+			let dy = c.height * .5 - cube.y;
+			let d = Math.sqrt(dx * dx + dy * dy) / maxDist;
+			let from = lerp(d, 0, 1 - individualRot);
+			let cubeRot1 = ilerp(rot1Alt, from, from + individualRot, true);
+			cube.setRotationZ(easing(cubeRot1) * -Math.PI / 2);
+			cube.render(actx);
+		});
+		
+		ctx.drawImage(alt, 0, 0);
+		requestAnimationFrame(loop);
+	}
+	requestAnimationFrame(loop);
+}
+    </script>
+</body>
+</html>
