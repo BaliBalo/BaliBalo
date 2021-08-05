@@ -27,9 +27,9 @@ body {
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<script src='https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js'></script>
-<script>
+	<canvas id="c"></canvas>
+	<script src='https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js'></script>
+	<script>
 let fontSize = '120px';
 // Plaster:400
 let fontFamily = 'Kanit';
@@ -163,14 +163,20 @@ function start() {
 	let actx = alt.getContext('2d');
 	alt.width = c.width;
 	alt.height = c.height;
-	actx.font = fontWeight + ' ' + fontSize + ' ' + fontFamily;
-	actx.textAlign = 'center';
-	actx.textBaseline = 'middle';
-		
-	let duration = 3;
-	let rot1Duration = .7;
-	let individualRot = .6;
-	let altTimeOffset = 2.2;
+	
+	[ctx, actx].forEach(e => {
+		e.strokeStyle = '#768390';
+		e.fillStyle = '#768390';
+		e.font = fontWeight + ' ' + fontSize + ' ' + fontFamily;
+		e.textAlign = 'center';
+		e.textBaseline = 'middle';
+	});
+	
+	// document.body.appendChild(alt);
+	
+	let duration = 4;
+	let individualRot = .8;
+	let altIndividualRot = .3;
 	
 	let cubes = [];
 	let altCubes = [];
@@ -187,56 +193,82 @@ function start() {
 			let posX = (c.width - (cubesPerRow - 1) * horizontalSpacing) * .5 + (x + (alternate ? .5 : 0)) * horizontalSpacing;
 			cubes.push(new Cube(posX, posY, cubeSize));
 			let altCube = new Cube(posX - horizontalSpacing * .5, posY - verticalSpacing / 3, cubeSize);
+			// let altCube = new Cube(posX, posY, cubeSize);
 			altCube.rotate(0, -Math.PI / 2, 0);
 			altCubes.push(altCube);
 		}
 	}
 	
-	let prev = performance.now();
+	// let capturer = new CCapture({
+	// 	format: 'png',
+	// 	framerate: 60,
+	// 	timeLimit: duration,
+	// 	name: 'gitbanner'
+	// });
+	// window.capturer = capturer;
+	
+	let prev = 0;
 	let time = 0;
 	function loop(now) {
 		if (!prev) {
 			prev = now;
 		}
+		let textX = c.width * .5;
+		let textY = c.height * .55;
 		let delta = now - prev;
 		time = (time + delta / 1000) % duration;
 		prev = now;
 		ctx.clearRect(0, 0, c.width, c.height);
-		actx.globalCompositeOperation = 'source-over';
 		actx.clearRect(0, 0, c.width, c.height);
-		actx.fillStyle = 'white';
-		actx.fillText('Bali Balo', c.width * .5, c.height * .55);
-		actx.globalCompositeOperation = 'source-atop';
 		let p = time / duration;
-		let rot1 = ilerp(p, 0, rot1Duration, true);
+		let rot1 = ilerp(p, .3, 1, true);
+		let rot1Alt = ilerp(p, .6, 1, true);
+		
 		let maxDist = Math.max(c.width, c.height) * .5 * Math.sqrt(2);
 		cubes.forEach(cube => {
 			let dx = c.width * .5 - cube.x;
 			let dy = c.height * .5 - cube.y;
 			let d = Math.sqrt(dx * dx + dy * dy) / maxDist;
 			let from = lerp(d, 0, 1 - individualRot);
-			let cubeRot1 = ilerp(rot1, from, from + individualRot, true);
+			let cubeRot1 = easing(ilerp(rot1, from, from + individualRot, true));
+			// cube.setRotationX(initXRotation + rot1 * Math.PI);
 			cube.setRotationZ(easing(cubeRot1) * -Math.PI / 2);
+			// cube.setRotationY(Math.PI / 4 + rot1 * Math.PI / 2);
+			ctx.lineWidth = lerp(ilerp(Math.abs(cubeRot1 - .5), .3, 0, true), 1, 2);
 			cube.render(ctx);
+			ctx.lineWidth = 1;
 		});
 		
-		let timeAlt = (time + altTimeOffset) % duration;
-		let pAlt = timeAlt / duration;
-		let rot1Alt = ilerp(pAlt, 0, rot1Duration, true);
 		altCubes.forEach(cube => {
 			let dx = c.width * .5 - cube.x;
 			let dy = c.height * .5 - cube.y;
 			let d = Math.sqrt(dx * dx + dy * dy) / maxDist;
-			let from = lerp(d, 0, 1 - individualRot);
-			let cubeRot1 = ilerp(rot1Alt, from, from + individualRot, true);
+			let from = lerp(d, 0, 1 - altIndividualRot);
+			let cubeRot1 = ilerp(rot1Alt, from, from + altIndividualRot, true);
 			cube.setRotationZ(easing(cubeRot1) * -Math.PI / 2);
+			// cube.setRotationY(Math.PI / 4 + cubeRot1 * Math.PI / 2);
 			cube.render(actx);
 		});
 		
+		ctx.globalCompositeOperation = 'destination-out';
+		ctx.fillText('Bali Balo', textX, textY);
+		ctx.globalCompositeOperation = 'source-over';
+		
+		actx.globalCompositeOperation = 'destination-in';
+		actx.fillText('Bali Balo', textX, textY);
+		actx.globalCompositeOperation = 'source-over';
+		
 		ctx.drawImage(alt, 0, 0);
 		requestAnimationFrame(loop);
+		// capturer.capture(c);
 	}
-	requestAnimationFrame(loop);
+	// requestAnimationFrame(loop);
+	loop(performance.now());
+	// window.start = () => {
+	// 	prev = 0;
+	// 	time = 0;
+	// 	capturer.start();
+	// };
 }
     </script>
 </body>
